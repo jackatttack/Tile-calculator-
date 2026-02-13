@@ -3,76 +3,15 @@ import math
 import time
 import uuid
 
-# ============================================================
-# CONSTANTS
-# ============================================================
+from constants import (
+    BG_COLOR, BOARD_COLOR, TILE_COLOR, TILE_DRAG_COLOR, GRID_COLOR, TEXT_COLOR,
+    BUTTON_COLOR, BUTTON_OFF_COLOR, RESULT_COLOR, RESULT_TEXT_COLOR,
+    GRID_SIZE, PADDING, TILE_SIZE,
+    EDITOR_W, EDITOR_H, EDITOR_GAP, EDITOR_BG, EDITOR_BORDER, EDITOR_TEXT,
+    PALETTE, DOUBLE_TAP_WINDOW, DRAG_THRESHOLD, OP_COLORS,
+)
+from ui_utils import clamp, get_point, pt_xy
 
-BG_COLOR = '#1C1C1E'
-BOARD_COLOR = '#2C2C2E'
-TILE_COLOR = '#FFD60A'
-TILE_DRAG_COLOR = '#FF9F0A'
-GRID_COLOR = '#3A3A3C'
-TEXT_COLOR = '#FFFFFF'
-BUTTON_COLOR = '#0A84FF'
-BUTTON_OFF_COLOR = '#3A3A3C'
-RESULT_COLOR = '#BF5AF2'
-RESULT_TEXT_COLOR = '#FFFFFF'
-
-GRID_SIZE = 50
-PADDING = 10
-TILE_SIZE = 45
-
-EDITOR_W = 240
-EDITOR_H = 115
-EDITOR_GAP = 10
-EDITOR_BG = '#2C2C2E'
-EDITOR_BORDER = '#3A3A3C'
-EDITOR_TEXT = '#FFFFFF'
-
-PALETTE = ['#FFD60A', '#0A84FF', '#34C759', '#FF453A']
-
-DOUBLE_TAP_WINDOW = 0.32
-DRAG_THRESHOLD = 6
-
-
-# ============================================================
-# UTILITIES
-# ============================================================
-
-def clamp(v, lo, hi):
-    return max(lo, min(hi, v))
-
-
-def get_point(touch, in_view=None):
-    loc = touch.location
-    if callable(loc):
-        return loc(in_view) if in_view else loc()
-    if in_view is not None:
-        from_view = getattr(touch, 'view', None)
-        if from_view is not None and from_view != in_view:
-            try:
-                window_pt = from_view.convert_point(loc, None)
-                return in_view.convert_point(window_pt, None)
-            except:
-                pass
-    return loc
-
-
-def pt_xy(pt):
-    try:
-        return pt.x, pt.y
-    except:
-        return pt[0], pt[1]
-
-
-
-OP_COLORS = {
-    '+': '#0A84FF',
-    '-': '#FF453A',
-    '*': '#FF9F0A',
-    '/': '#5AC8FA',
-    '^': '#AF52DE',
-}
 
 # ============================================================
 # TILE EDITOR POPUP
