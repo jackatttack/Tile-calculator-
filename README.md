@@ -21,6 +21,18 @@ This project uses "drop to compute" rather than a classic equals button.
 - Results appear when merges resolve an expression.
 - (TODO: verify) The equals tile may function as a merge trigger rather than a press-to-render.
 
+
+## Refactor status
+
+The project has started being split into smaller modules to make future features easier to add.
+
+Current module split:
+- `Tile calc working copy.py` — main app and core board logic
+- `constants.py` — theme, sizing, and token constants
+- `ui_utils.py` — shared helper functions (`clamp`, touch point helpers)
+
+When running from Pythonista, keep these files together in the same folder so imports resolve correctly.
+
 ## Running
 - Open the script in Pythonista and run.
 - Recommended: iPad for space, but works on iPhone.
