@@ -21,6 +21,24 @@ This project uses "drop to compute" rather than a classic equals button.
 - Results appear when merges resolve an expression.
 - (TODO: verify) The equals tile may function as a merge trigger rather than a press-to-render.
 
+
+## Refactor status
+
+The app has now been split into multiple modules so features can be added in isolated files instead of one monolithic script.
+
+Current structure:
+- `Tile calc working copy.py` — tiny launcher/entrypoint
+- `app_main.py` — app shell (`DragTestApp`) + `run_app()`
+- `board.py` — `Board` orchestration and merge/evaluation flow
+- `tile_models.py` — tile/spawner view classes
+- `editor_views.py` — tile editor popup + overlay
+- `board_menus.py` — trash/context menu components
+- `widgets.py` — reusable UI button widgets
+- `constants.py` — theme, sizing, color tokens
+- `ui_utils.py` — shared geometry/touch helpers
+
+This keeps behavior the same while making future feature work easier to place in the right file.
+
 ## Running
 - Open the script in Pythonista and run.
 - Recommended: iPad for space, but works on iPhone.
