@@ -688,11 +688,100 @@ class FractionTile(Tile):
         self.denom = int(d)
         self._refresh_display()
 
+
+class SpawnerDragMixin:
+    """Shared drag/tap lifecycle for tile spawners."""
+
+    def _init_spawner_drag_state(self):
+        self.dragging = False
+        self.touch_offset = (0, 0)
+        self.clone = None
+        self._touch_start_pt = None
+        self._drag_started = False
+
+    def touch_began(self, touch):
+        self.spawner_touch_began(touch)
+
+    def touch_moved(self, touch):
+        self.spawner_touch_moved(touch)
+
+    def touch_ended(self, touch):
+        self.spawner_touch_ended(touch)
+
+    def _add_clone_to_tiles_on_drag_start(self):
+        return False
+
+    def _on_spawner_tap(self):
+        raise NotImplementedError
+
+    def _drop_clone(self, clone):
+        if self.board.is_over_trash(clone):
+            self.board.delete_tile(clone)
+            return
+
+        try:
+            self.board.finalize_drop(clone)
+        except Exception as e:
+            print('spawner finalize_drop error:', e)
+
+    def spawner_touch_began(self, touch):
+        self.board.dismiss_editor()
+        self._touch_start_pt = get_point(touch, in_view=self.board)
+        self._drag_started = False
+        self.clone = None
+        self.touch_offset = pt_xy(get_point(touch, in_view=self))
+        self.dragging = True
+
+    def spawner_touch_moved(self, touch):
+        if not self.dragging:
+            return
+
+        if not self._drag_started:
+            cur = get_point(touch, in_view=self.board)
+            cx, cy = pt_xy(cur)
+            sx, sy = pt_xy(self._touch_start_pt)
+            if (abs(cx - sx) + abs(cy - sy)) > DRAG_THRESHOLD:
+                self._drag_started = True
+                self.clone = self._spawn_clone()
+                if self._add_clone_to_tiles_on_drag_start() and self.clone not in self.board.tiles:
+                    self.board.tiles.append(self.clone)
+                self.clone.x = self.x
+                self.clone.y = self.y
+                self.clone.dragging = True
+                self.clone.touch_offset = self.touch_offset
+                self.clone.background_color = TILE_DRAG_COLOR
+
+        if self._drag_started and self.clone:
+            tx, ty = pt_xy(touch.location)
+            self.clone.x = clamp(self.x + tx - self.touch_offset[0],
+                                 PADDING, self.board.width - self.clone.width - PADDING)
+            self.clone.y = clamp(self.y + ty - self.touch_offset[1],
+                                 PADDING, self.board.height - self.clone.height - PADDING)
+
+    def spawner_touch_ended(self, touch):
+        if self.dragging and not self._drag_started:
+            self._on_spawner_tap()
+            self.dragging = False
+            return
+
+        if self.clone:
+            self.clone.dragging = False
+            try:
+                self.clone.background_color = self.clone.tile_color
+            except:
+                pass
+
+            self._drop_clone(self.clone)
+            self.clone = None
+
+        self.dragging = False
+        self._drag_started = False
+
 # ============================================================
 # SOURCE TILE (editable template spawner)
 # ============================================================
 
-class SourceTile(ui.View):
+class SourceTile(ui.View, SpawnerDragMixin):
     def __init__(self, board):
         super().__init__()
         self.board = board
@@ -705,11 +794,7 @@ class SourceTile(ui.View):
         self.tile_color = TILE_COLOR
         self.background_color = self.tile_color
 
-        self.dragging = False
-        self.touch_offset = (0, 0)
-        self.clone = None
-        self._touch_start_pt = None
-        self._drag_started = False
+        self._init_spawner_drag_state()
 
         self.plus = ui.Label()
         self.plus.text = '+'
@@ -725,10 +810,6 @@ class SourceTile(ui.View):
         self.preview.alignment = ui.ALIGN_CENTER
         self.preview.number_of_lines = 1
         self.add_subview(self.preview)
-
-        self.touch_began = self.spawner_touch_began
-        self.touch_moved = self.spawner_touch_moved
-        self.touch_ended = self.spawner_touch_ended
 
     def layout(self):
         self.plus.frame = (0, 0, self.width, self.height)
@@ -751,69 +832,23 @@ class SourceTile(ui.View):
         t.set_tile_color(self.tile_color)
         return t
 
-    def spawner_touch_began(self, touch):
-        self.board.dismiss_editor()
-        self._touch_start_pt = get_point(touch, in_view=self.board)
-        self._drag_started = False
-        self.clone = None
-        self.touch_offset = pt_xy(get_point(touch, in_view=self))
-        self.dragging = True
+    def _on_spawner_tap(self):
+        self.board.show_editor_for_tile(self)
 
-    def spawner_touch_moved(self, touch):
-        if not self.dragging:
-            return
-        if not self._drag_started:
-            cur = get_point(touch, in_view=self.board)
-            cx, cy = pt_xy(cur)
-            sx, sy = pt_xy(self._touch_start_pt)
-            if (abs(cx - sx) + abs(cy - sy)) > DRAG_THRESHOLD:
-                self._drag_started = True
-                self.clone = self._spawn_clone()
-                self.clone.x = self.x
-                self.clone.y = self.y
-                self.clone.dragging = True
-                self.clone.touch_offset = self.touch_offset
-                self.clone.background_color = TILE_DRAG_COLOR
-
-        if self._drag_started and self.clone:
-            tx, ty = pt_xy(touch.location)
-            new_x = clamp(self.x + tx - self.touch_offset[0],
-                          PADDING, self.board.width - self.clone.width - PADDING)
-            new_y = clamp(self.y + ty - self.touch_offset[1],
-                          PADDING, self.board.height - self.clone.height - PADDING)
-            self.clone.x = new_x
-            self.clone.y = new_y
-
-    def spawner_touch_ended(self, touch):
-        if self.dragging and not self._drag_started:
-            self.board.show_editor_for_tile(self)
-            self.dragging = False
-            return
-
-        if self.clone:
-            self.clone.dragging = False
-            self.clone.background_color = self.clone.tile_color
-
-            if self.board.is_over_trash(self.clone):
-                self.board.delete_tile(self.clone)
-            else:
-                if self.clone not in self.board.tiles:
-                    self.board.tiles.append(self.clone)
-                try:
-                    self.board.finalize_drop(self.clone)
-                except Exception as e:
-                    print('SourceTile finalize_drop error:', e)
-            self.clone = None
-
-        self.dragging = False
-        self._drag_started = False
+    def _drop_clone(self, clone):
+        if clone not in self.board.tiles:
+            self.board.tiles.append(clone)
+        try:
+            super()._drop_clone(clone)
+        except Exception as e:
+            print('SourceTile finalize_drop error:', e)
 
 
 # ============================================================
 # TOKEN SPAWNER (fixed token like digits, operators)
 # ============================================================
 
-class TokenSpawner(ui.View):
+class TokenSpawner(ui.View, SpawnerDragMixin):
     def __init__(self, board, token, kind='generic', color=TILE_COLOR, text_color='#000000'):
         super().__init__()
         self.board = board
@@ -828,11 +863,7 @@ class TokenSpawner(ui.View):
         self.flex = ''
         self.background_color = self.tile_color
 
-        self.dragging = False
-        self.touch_offset = (0, 0)
-        self.clone = None
-        self._touch_start_pt = None
-        self._drag_started = False
+        self._init_spawner_drag_state()
 
         self.label = ui.Label()
         self.label.text = self.token
@@ -841,10 +872,6 @@ class TokenSpawner(ui.View):
         self.label.alignment = ui.ALIGN_CENTER
         self.label.frame = (0, 0, TILE_SIZE, TILE_SIZE)
         self.add_subview(self.label)
-
-        self.touch_began = self.spawner_touch_began
-        self.touch_moved = self.spawner_touch_moved
-        self.touch_ended = self.spawner_touch_ended
 
     def layout(self):
         self.label.frame = (0, 0, self.width, self.height)
@@ -910,63 +937,11 @@ class TokenSpawner(ui.View):
             except:
                 pass
 
-    def spawner_touch_began(self, touch):
-        self.board.dismiss_editor()
-        self._touch_start_pt = get_point(touch, in_view=self.board)
-        self._drag_started = False
-        self.clone = None
-        self.touch_offset = pt_xy(get_point(touch, in_view=self))
-        self.dragging = True
+    def _add_clone_to_tiles_on_drag_start(self):
+        return True
 
-    def spawner_touch_moved(self, touch):
-        if not self.dragging:
-            return
-        if not self._drag_started:
-            cur = get_point(touch, in_view=self.board)
-            cx, cy = pt_xy(cur)
-            sx, sy = pt_xy(self._touch_start_pt)
-            if (abs(cx - sx) + abs(cy - sy)) > DRAG_THRESHOLD:
-                self._drag_started = True
-                self.clone = self._spawn_clone()
-                if self.clone not in self.board.tiles:
-                    self.board.tiles.append(self.clone)
-                self.clone.x = self.x
-                self.clone.y = self.y
-                self.clone.dragging = True
-                self.clone.touch_offset = self.touch_offset
-                self.clone.background_color = TILE_DRAG_COLOR
-
-        if self._drag_started and self.clone:
-            tx, ty = pt_xy(touch.location)
-            self.clone.x = clamp(self.x + tx - self.touch_offset[0],
-                                 PADDING, self.board.width - self.clone.width - PADDING)
-            self.clone.y = clamp(self.y + ty - self.touch_offset[1],
-                                 PADDING, self.board.height - self.clone.height - PADDING)
-
-    def spawner_touch_ended(self, touch):
-        if self.dragging and not self._drag_started:
-            self._tap_spawn()
-            self.dragging = False
-            return
-
-        if self.clone:
-            self.clone.dragging = False
-            try:
-                self.clone.background_color = self.clone.tile_color
-            except:
-                pass
-
-            if self.board.is_over_trash(self.clone):
-                self.board.delete_tile(self.clone)
-            else:
-                try:
-                    self.board.finalize_drop(self.clone)
-                except Exception as e:
-                    print('spawner finalize_drop error:', e)
-            self.clone = None
-
-        self.dragging = False
-        self._drag_started = False
+    def _on_spawner_tap(self):
+        self._tap_spawn()
 
 # ============================================================
 # TRASH BIN
@@ -5040,8 +5015,6 @@ class BoardContextMenu(ui.View):
 
 app = DragTestApp()
 app.present('fullscreen', hide_title_bar=False)
-
-
 
 
 
