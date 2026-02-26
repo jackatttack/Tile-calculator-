@@ -1,5 +1,5 @@
 import ui
-from tile import Tile
+from tile import Tile, BORDER_GROUP, _darker
 
 
 class Board(ui.View):
@@ -73,7 +73,7 @@ class Board(ui.View):
                 if t is None:
                     continue
                 if t in group and t is not getattr(self, 'selected_tile', None):
-                    t.border_color = '#ff0808'
+                    t.border_color = BORDER_GROUP
                     t.border_width = 3
                 else:
                     # restore “normal” visuals via existing API
@@ -511,8 +511,9 @@ class Board(ui.View):
             try:
                 kind = getattr(t, 'kind', '')
                 color = Tile.color_for_kind(kind)
-                t.background_color = color
                 t.base_color = color
+                t.drag_color = _darker(color, 0.80)
+                t.set_needs_display()
             except Exception as e:
                 print(f"[REFRESH_COLORS_ERROR] {e}")
 
@@ -528,7 +529,7 @@ class Board(ui.View):
         cx, cy = numer_tile.center
         self._delete_tile(numer_tile)
         frac = self.create_tile_from_spec({
-            'text': '', 'kind': 'fraction', 'color': '#FF9F0A',
+            'text': '', 'kind': 'fraction', 'color': Tile.color_for_kind('fraction'),
             'expr_str': '', 'display': '',
         })
         frac.data.meta['numer_disp'] = numer_disp
@@ -593,13 +594,13 @@ class Board(ui.View):
 
     def create_tile_from_spec(self, spec):
         text = spec.get('text', '1')
-        color = spec.get('color', '#FFD60A')
         kind = spec.get('kind', 'generic')
+        color = spec.get('color') or Tile.color_for_kind(kind)
         spawn_kind = spec.get('spawn_kind', kind)
 
         if spawn_kind == 'fraction':
             t = Tile(
-                text='', kind='fraction', color='#FF9F0A',
+                text='', kind='fraction', color=Tile.color_for_kind('fraction'),
                 w_cells=1, h_cells=2, cell_size=self.grid, gutter=4
             )
             meta = spec.get('_meta', {})
@@ -1008,8 +1009,7 @@ class Board(ui.View):
         estr = str(result)
         has_sym = bool(sympy.sympify(estr).free_symbols)
         kind  = 'number' if not has_sym else 'expr'
-        color = '#FFD60A' if kind == 'number' else '#BF5AF2'
-        spec = {'text': disp, 'kind': kind, 'color': color, 'expr_str': estr, 'display': disp}
+        spec = {'text': disp, 'kind': kind, 'color': Tile.color_for_kind(kind), 'expr_str': estr, 'display': disp}
         self._spawn_adjacent(eq_tile, spec, direction)
 
     def _spawn_eq_solutions(self, eq_tile, sym, solutions):
@@ -1025,10 +1025,11 @@ class Board(ui.View):
                 is_numeric = False
             disp = f"{sym} = {_pretty(sol)}"
             estr = f"{sym} = {sol}" if not is_numeric else str(sol)
+            kind_val = 'number' if is_numeric else 'expr'
             spec = {
                 'text':    disp,
-                'kind':    'number' if is_numeric else 'expr',
-                'color':   '#FFD60A' if is_numeric else '#BF5AF2',
+                'kind':    kind_val,
+                'color':   Tile.color_for_kind(kind_val),
                 'expr_str':estr,
                 'display': disp,
             }
