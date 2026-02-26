@@ -65,6 +65,12 @@ _KIND_COLORS_DEFAULT = {
     'puck':       '#8E8E93',
 }
 
+# UI border/selection theme — single source of truth for all border colors.
+BORDER_DEFAULT  = '#3A3A3C'   # resting tile border
+BORDER_SELECTED = '#0A84FF'   # individual selection (blue)
+BORDER_STICKY   = '#FF9F0A'   # sticky tile (amber)
+BORDER_GROUP    = '#FF3B30'   # group / lasso selection (red)
+
 
 def _load_kind_colors():
     import json
@@ -163,7 +169,7 @@ class Tile(ui.View):
         # Rendering / style
         self.corner_radius = 16
         self.border_width = 2
-        self.border_color = '#3A3A3C'
+        self.border_color = BORDER_DEFAULT
 
         # draw() owns background — force clear (defensively, even if someone sets it elsewhere)
         self._force_view_bg_clear()
@@ -916,16 +922,16 @@ class Tile(ui.View):
         grouped = bool(getattr(self, '_group_selected', False))
 
         if selected:
-            self.border_color = '#ff0f0f'
+            self.border_color = BORDER_SELECTED
             self.border_width = 3
         elif sticky:
-            self.border_color = '#FF9F0A'
+            self.border_color = BORDER_STICKY
             self.border_width = 3
         elif grouped:
-            self.border_color = '#ff0808'
+            self.border_color = BORDER_GROUP
             self.border_width = 3
         else:
-            self.border_color = '#3A3A3C'
+            self.border_color = BORDER_DEFAULT
             self.border_width = 2
 
         try:
@@ -952,16 +958,16 @@ class Tile(ui.View):
         sticky_on = bool(getattr(self, '_sticky', False))
 
         if group_on:
-            self.border_color = '#FF3B30'
+            self.border_color = BORDER_GROUP
             self.border_width = 4
         elif self._selected:
-            self.border_color = '#0A84FF'
+            self.border_color = BORDER_SELECTED
             self.border_width = 3
         elif sticky_on:
-            self.border_color = '#FF9F0A'
+            self.border_color = BORDER_STICKY
             self.border_width = 3
         else:
-            self.border_color = '#3A3A3C'
+            self.border_color = BORDER_DEFAULT
             self.border_width = 2
 
         try:
@@ -994,10 +1000,10 @@ class Tile(ui.View):
 
         if not bool(getattr(self, '_selected', False)):
             if self._sticky:
-                self.border_color = '#FF9F0A'
+                self.border_color = BORDER_STICKY
                 self.border_width = 3
             else:
-                self.border_color = '#3A3A3C'
+                self.border_color = BORDER_DEFAULT
                 self.border_width = 2
 
         try:
